@@ -1,0 +1,268 @@
+---
+title: "Informe generación de energía eléctrica"
+subtitle: "Análisis exploratorio del consumo de gases en la generación de energía"
+author: "Agustina"
+format: html
+editor: visual
+toc: true
+self-contained-math: true
+lightbox: true ##esto sirve para que se le pueda hacer zoom al gráfico
+echo: false
+message: false
+warning: false
+---
+
+```{r setup}
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(scales)
+library(here)
+library(plotly)
+library(corrplot)
+library(kableExtra)
+df <- readRDS(here("df.rds"))
+df_TOT <- readRDS(here("df_TOT.rds"))
+```
+
+## Introducción
+
+La empresa XX genera su propia energía eléctrica para abastecer el consumo de sus distintas líneas productivas.\
+Este informe desarrolla un análisis exploratorio del uso y comportamiento de los combustibles empleados para dicha generación.
+
+El estudio se realizó a partir de datos correspondientes a los últimos 36 meses (julio 2022 – junio 2025).
+
+## Resumen del caso
+
+La empresa XX pertenece al sector industrial y cuenta con una central termoeléctrica destinada a producir energía eléctrica de uso interno. Es importante aclarar que esta actividad no constituye una unidad de negocio, sino un servicio necesario para sostener la operación productiva.
+
+La energía se genera a partir de vapor de alta presión, que acciona las turbinas de los turbogeneradores y transforma energía térmica en energía mecánica. Posteriormente, un generador eléctrico convierte esa energía mecánica en energía eléctrica.
+
+En consecuencia, el foco del análisis está puesto en los combustibles utilizados para producir dicho vapor, ya que son el insumo directo para la generación eléctrica.
+
+## Consumo de gases
+
+### 1. Tipos de combustibles disponibles
+
+Dos de los principales procesos productivos generan gases como subproductos. Estos gases representan energía ya disponible: no utilizarlos implicaría desperdiciar un recurso que ya fue generado.
+
+Por este motivo, se recuperan y se inyectan en las calderas como combustibles. Sin embargo, su disponibilidad es inestable porque depende del nivel de producción de cada línea.
+
+Además de los gases de proceso, la central consume gas natural y, como última alternativa, fuel oil. Aunque el gas natural es más económico que el fuel oil, su principal limitación es la escasez.
+
+### 2. Nociones sobre el consumo
+
+El siguiente gráfico muestra el porcentaje promedio del consumo de cada combustible, calculado sobre un período de 36 meses.
+
+```{r}
+ggplot(data = df_TOT) +
+  aes(y = reorder(Variables, Total / sum(Total)),
+      x = Total / sum(Total)) +
+  geom_col(width = 0.3, fill = "orange") +
+  geom_text(
+    aes(label = scales::percent(Total / sum(Total), accuracy = 0.1)),
+    hjust = -0.1,
+    size = 4) +
+  scale_x_continuous(labels = scales::percent,
+                     limits = c(0, 1)) +
+  labs(title = "% de consumo según tipo de combustible",
+       x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+        plot.title = element_text(hjust = 0.5, color = "#262626"),
+        axis.title.x = element_text(margin = margin(t=10), color = "#525252"),
+        axis.title.y = element_text(margin = margin(r=10), color = "#525252"))
+```
+
+## Análisis exploratorio sobre las variables
+
+### Consumo de gases de proceso vs. producción de líneas
+
+Tal como se observa en el gráfico previo, los principales combustibles utilizados son los recuperados como subproductos.
+
+La disponibilidad de estos gases depende estrictamente de la producción de cada línea, ya que no pueden almacenarse. Dicho nivel de producción puede variar por cambios en la demanda o por paradas de mantenimiento.
+
+Si analizamos la relación entre la producción de la Línea A y el consumo del gas que esta genera, se observa una fuerte correlación entre ambas variables.
+
+```{r}
+ggplotly(ggplot(df, 
+                aes(
+                  x = prod_lineaA_tn,
+                  y = consumo_gas_linea_A,
+                  text = paste("Período:", format(periodo, "%m-%Y")))) +
+           geom_point(color = "orange", size = 1) +
+           labs(
+             title = "Relación entre producción y consumo de gas - Línea A",
+             x = "Producción Línea A (tn)",
+             y = "Consumo de gas Línea A") +
+           theme_minimal() +
+           theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+                 plot.title = element_text(hjust = 0.5, color = "#262626"),
+                 axis.title.x = element_text(margin = margin(t=20), color = "#525252"),
+                 axis.title.y = element_text(margin = margin(r=20), color = "#525252")) +
+           scale_x_continuous(labels = scales::comma) +
+           scale_y_continuous(labels = scales::comma), 
+         tooltip = "text") %>% 
+  layout(margin = list(t = 90))
+```
+
+<br> En cambio, al graficar la producción de la Línea C frente al consumo del gas correspondiente, no se observa una relación clara entre ambas variables. Si bien la generación del gas depende directamente del nivel de producción, al profundizar en el análisis encontramos que el gas de la Línea C también es utilizado como combustible en otros procesos. Esto explica la ausencia de correlación directa y sugiere la necesidad de investigar variables adicionales para comprender mejor los factores que afectan su disponibilidad y consumo.
+
+```{r}
+ggplotly(ggplot(df, 
+                aes(
+                  x = prod_lineaC_Tn,
+                  y = consumo_gas_linea_C,
+                  text = paste("Período:", format(periodo, "%m-%Y")))) +
+           geom_point(color = "orange", size = 1) +
+           labs(
+             title = "Relación entre producción y consumo de gas - Línea C",
+             x = "Producción Línea C (tn)",
+             y = "Consumo de gas Línea C") +
+           theme_minimal() +
+           theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+                 plot.title = element_text(hjust = 0.5, color = "#262626"),
+                 axis.title.x = element_text(margin = margin(t=20), color = "#525252"),
+                 axis.title.y = element_text(margin = margin(r=20), color = "#525252")) +
+           scale_x_continuous(labels = scales::comma) +
+           scale_y_continuous(labels = scales::comma), 
+         tooltip = "text") %>% 
+  layout(margin = list(t = 90))
+```
+
+### Correlación en el consumo de combustibles
+
+La inyección de gas natural no puede sustituirse completamente por gases de proceso, dado que no existe una disponibilidad suficiente de estos como para cubrir la demanda total de combustible.
+
+Surge entonces la pregunta: ¿existe algún patrón de reemplazo entre los combustibles? En otras palabras, cuando los gases de proceso disminuyen, ¿aumenta sistemáticamente el consumo de algún otro combustible?
+
+Para responderlo, se analizó la asociación entre las cuatro variables mediante un mapa de calor de correlaciones.
+
+A partir de ello se concluye que la única relación de reemplazo observable es entre el gas de la Línea A y el fuel oil.
+
+```{r}
+
+# Matriz de correlación
+matriz <- df %>% 
+  select(
+    `Gas Natural` = consumo_gas_natural,
+    `Gas Línea A` = consumo_gas_linea_A,
+    `Gas Línea C` = consumo_gas_linea_C,
+    `Fuel Oil`    = consumo_fuel_oil
+  ) %>% 
+  cor() %>% 
+  round(2)
+
+#Mapa de calor
+corrplot(matriz,
+         tl.col = "#262626",
+         tl.srt = 70,
+         number.cex = 0.7,
+         tl.cex = 0.8)
+```
+
+### Consumo de gas natural
+
+El gas natural es un recurso finito y su disponibilidad está regulada por organismos estatales. Por lo tanto, su acceso también es limitado para la empresa, lo cual condiciona su uso como fuente de combustible en la central termoeléctrica. Desde sep23 se observa un gran incremento en el consumo de gas natural, producido por la inauguración del Gasoducto Perito Moreno.
+
+```{r}
+df %>%
+  summarise(
+    jul22_ago23 = round(
+      mean(
+        consumo_gas_natural[periodo >= as.Date("2022-07-01") &
+                            periodo <= as.Date("2023-08-31")],
+        na.rm = TRUE
+      ), 0
+    ),
+    
+    sep23_jun25 = round(
+      mean(
+        consumo_gas_natural[periodo >= as.Date("2023-09-01") &
+                            periodo <= as.Date("2025-06-30")],
+        na.rm = TRUE
+      ), 0
+    )
+  ) %>% 
+  kable(
+    col.names = c("Media pre-gasoducto", "Media post-gasoducto"),
+    caption = "Consumo medio de gas natural por período"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover")
+  )
+
+```
+
+Desde septiembre de 2023 se observa un incremento significativo en el consumo de gas natural, asociado a la inauguración del Gasoducto Perito Moreno. Al comparar los períodos julio 2022–agosto 2023 (pre–gasoducto) con septiembre 2023–junio 2025 (post–gasoducto), la media mensual de consumo aumentó aproximadamente un 30%.
+
+Otro factor potencialmente influyente es la estacionalidad. Durante el invierno, la disponibilidad de gas natural para uso industrial suele disminuir debido al incremento de la demanda residencial. Sin embargo, al analizar dos medidas de tendencia central (media y mediana), no se observan diferencias relevantes entre estaciones. De hecho, el consumo invernal tiende a ser apenas superior, pero no lo suficiente como para considerarlo un factor determinante en el comportamiento general.
+
+```{r}
+df %>%
+  group_by(estacion) %>%
+  summarise(
+    media   = round(mean(consumo_gas_natural, na.rm = TRUE),0),
+    mediana = round(median(consumo_gas_natural, na.rm = TRUE),0)
+  ) %>% 
+  kable(col.names = c("Estación", "Media", "Mediana")) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover"))
+```
+
+El siguiente gráfico muestra un cálculo realizado a partir de una variable que identifica tramos consecutivos de la misma estación (invierno o verano). Luego, para cada tramo, se calculó el promedio del consumo de gas natural y se asignó ese valor a todos los meses dentro del grupo. Esto permite graficar una línea de promedio por estación sin interrupciones.
+
+```{r}
+ggplot(data = df) +
+  aes(x = periodo,
+      y = prom_GN,
+      color = estacion,
+      group = grupo_estacion) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(name = NULL,
+    values = c(
+    "Invierno" = "steelblue",
+    "Verano"   = "#C71D36"
+  )) +
+  labs(
+    title = "Consumo de gas natural",
+    x = "Período",
+    y = "Tn" ) +
+  theme_minimal() +
+  scale_x_date(date_labels = "%m/%Y",
+               date_breaks = "3 month") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 01),
+                 plot.title = element_text(hjust = 0.5, color = "#262626"),
+                 axis.title.x = element_text(margin = margin(t=20), color = "#525252"),
+                 axis.title.y = element_text(margin = margin(r=20), color = "#525252"))
+```
+
+## Eficiencias del ciclo térmico
+
+La eficiencia de ciclo térmico se puede medir como el índice: $$
+\text{Eficiencia} = \frac{\text{Producción EE (MWh)}}{\text{Producción Vapor (Gcal)}}
+$$ Este indicador permite estudiar si la planta mantiene un rendimiento estable o si existen meses con menor eficiencia operativa que requieran una investigación adicional.
+
+El histograma de la eficiencia muestra una distribución asimétrica hacia la izquierda, con algunos valores atípicos, y una mediana de aproximadamente 0.36 MWh/Gcal. Esto sugiere la presencia de meses con menor rendimiento térmico respecto al comportamiento habitual del sistema.
+
+```{r}
+df$eficiencia <- df$prod_EE_MWh / df$consumo_vapor
+
+ggplot(df, aes(x = eficiencia)) +
+  geom_histogram(
+    bins = 20,
+    fill = "orange",
+    color = "white",
+    alpha = 0.8
+  ) +
+  labs(
+    title = "Distribución de la eficiencia térmica",
+    x = "Eficiencia (MWh/Gcal)",
+    y = "Frecuencia"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+        plot.title = element_text(hjust = 0.5, color = "#262626"),
+        axis.title.x = element_text(margin = margin(t=10), color = "#525252"),
+        axis.title.y = element_text(margin = margin(r=10), color = "#525252"))
+```
