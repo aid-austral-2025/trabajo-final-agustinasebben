@@ -14,3 +14,5 @@ El informe incluye:
 
 El documento completo está desarrollado en Quarto, integrando código en R y visualizaciones reproducibles.
 El código de R incluye importación, limpieza y armado de una nueva base.
+
+Para ejecutar el código, se debe iniciar por los scripts de la carpeta "scripts_lectura" y luego renderizar el quarto.
